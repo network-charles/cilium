@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/netip"
 	"sync"
+	"testing"
 	"time"
 
 	. "github.com/cilium/checkmate"
@@ -84,14 +85,13 @@ func makeIPs(count uint32) []netip.Addr {
 // BenchmarkFqdnCache tests how slow a full dump of DNSHistory from a number of
 // endpoints is. Each endpoints has 1000 DNS lookups, each with 10 IPs. The
 // dump iterates over all endpoints, lookups, and IPs.
-func (ds *DaemonSuite) BenchmarkFqdnCache(c *C) {
-	c.StopTimer()
-
-	endpoints := make([]*endpoint.Endpoint, 0, c.N)
-	for i := 0; i < c.N; i++ {
+func BenchmarkFqdnCache(b *testing.B) {
+	endpoints := make([]*endpoint.Endpoint, 0, b.N)
+	for i := 0; i < b.N; i++ {
 		lookupTime := time.Now()
 		ep := &endpoint.Endpoint{} // only works because we only touch .DNSHistory
 		ep.DNSHistory = fqdn.NewDNSCache(0)
+		ep.DNSZombies = &fqdn.DNSZombieMappings{}
 
 		for i := 0; i < 1000; i++ {
 			ep.DNSHistory.Update(lookupTime, fmt.Sprintf("domain-%d.com.", i), makeIPs(10), 1000)
@@ -99,7 +99,7 @@ func (ds *DaemonSuite) BenchmarkFqdnCache(c *C) {
 
 		endpoints = append(endpoints, ep)
 	}
-	c.StartTimer()
+	b.ResetTimer()
 
 	extractDNSLookups(endpoints, "0.0.0.0/0", "*", "")
 }
